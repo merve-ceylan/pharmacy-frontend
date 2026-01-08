@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface Address {
     id: number;
@@ -18,11 +20,13 @@ interface Address {
 
 export default function AddressesPage() {
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingAddress, setEditingAddress] = useState<Address | null>(null);
     const [error, setError] = useState('');
+
     const [formData, setFormData] = useState({
         title: '',
         fullName: '',
@@ -55,6 +59,7 @@ export default function AddressesPage() {
             }
         } catch (err) {
             console.error('Adresler yüklenemedi', err);
+            showError('Adresler yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -83,17 +88,21 @@ export default function AddressesPage() {
             });
 
             if (res.ok) {
+                showSuccess(editingAddress ? 'Adres güncellendi' : 'Adres eklendi');
                 setShowModal(false);
                 setEditingAddress(null);
                 resetForm();
                 loadAddresses();
             } else {
                 const data = await res.json();
-                setError(data.message || 'İşlem başarısız');
+                const errorMsg = data.message || 'İşlem başarısız';
+                setError(errorMsg);
+                showError(errorMsg);
             }
         } catch (err) {
             console.error('Adres kaydetme hatası', err);
             setError('Bir hata oluştu');
+            showError('Bir hata oluştu');
         }
     };
 
@@ -122,11 +131,14 @@ export default function AddressesPage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
+                showSuccess('Adres silindi');
                 loadAddresses();
+            } else {
+                showError('Adres silinemedi');
             }
         } catch (err) {
             console.error('Silme hatası', err);
-            alert('Silinemedi');
+            showError('Adres silinemedi');
         }
     };
 
@@ -138,11 +150,14 @@ export default function AddressesPage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
+                showSuccess('Varsayılan adres güncellendi');
                 loadAddresses();
+            } else {
+                showError('İşlem başarısız');
             }
         } catch (err) {
             console.error('Varsayılan yapma hatası', err);
-            alert('İşlem başarısız');
+            showError('İşlem başarısız');
         }
     };
 
@@ -168,8 +183,33 @@ export default function AddressesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100 py-8">
+                <div className="container mx-auto px-4">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="100px" height="24px" />
+                            <Skeleton width="200px" height="36px" />
+                        </div>
+                        <Skeleton width="120px" height="40px" variant="rectangular" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+                                <div className="flex justify-between mb-4">
+                                    <Skeleton width="100px" height="24px" />
+                                    <div className="flex gap-2">
+                                        <Skeleton width="60px" height="20px" />
+                                        <Skeleton width="40px" height="20px" />
+                                    </div>
+                                </div>
+                                <Skeleton width="150px" height="20px" className="mb-2" />
+                                <Skeleton width="100%" height="20px" className="mb-2" />
+                                <Skeleton width="200px" height="20px" className="mb-2" />
+                                <Skeleton width="120px" height="20px" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -186,7 +226,7 @@ export default function AddressesPage() {
                     </div>
                     <button
                         onClick={openNewModal}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                     >
                         + Yeni Adres
                     </button>
@@ -194,6 +234,7 @@ export default function AddressesPage() {
 
                 {addresses.length === 0 ? (
                     <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                        <div className="text-6xl mb-4">📍</div>
                         <p className="text-gray-500 text-lg">Kayıtlı adresiniz bulunmuyor</p>
                     </div>
                 ) : (
@@ -201,7 +242,7 @@ export default function AddressesPage() {
                         {addresses.map((address) => (
                             <div
                                 key={address.id}
-                                className={`bg-white rounded-lg shadow-md p-6 ${
+                                className={`bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition ${
                                     address.isDefault ? 'ring-2 ring-blue-500' : ''
                                 }`}
                             >
@@ -350,14 +391,14 @@ export default function AddressesPage() {
                                 <div className="flex gap-4">
                                     <button
                                         type="submit"
-                                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
                                     >
                                         {editingAddress ? 'Güncelle' : 'Kaydet'}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setShowModal(false)}
-                                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                                     >
                                         İptal
                                     </button>

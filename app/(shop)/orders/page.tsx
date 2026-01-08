@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ordersApi } from '@/lib/api';
 import { Order } from '@/types';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 export default function OrdersPage() {
     const router = useRouter();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const { showError } = useToast();
 
     useEffect(() => {
         loadOrders();
@@ -29,6 +32,7 @@ export default function OrdersPage() {
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Siparişler yüklenemedi';
             setError(errorMessage);
+            showError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -60,8 +64,24 @@ export default function OrdersPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100 py-8">
+                <div className="container mx-auto px-4">
+                    <h1 className="text-3xl font-bold mb-8">Siparişlerim</h1>
+                    <div className="space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <Skeleton width="150px" height="24px" />
+                                    <Skeleton width="100px" height="28px" variant="rectangular" />
+                                </div>
+                                <div className="flex justify-between items-center pt-4 border-t">
+                                    <Skeleton width="80px" height="20px" />
+                                    <Skeleton width="120px" height="28px" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

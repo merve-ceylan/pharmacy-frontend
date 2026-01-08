@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cartApi } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
+import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 
 interface FavoriteProduct {
     id: number;
@@ -21,7 +23,7 @@ export default function FavoritesPage() {
     const [favorites, setFavorites] = useState<FavoriteProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [addingToCart, setAddingToCart] = useState<number | null>(null);
-
+    const { showSuccess, showError } = useToast();
     useEffect(() => {
         loadFavorites();
     }, []);
@@ -60,7 +62,7 @@ export default function FavoritesPage() {
             }
         } catch (err) {
             console.error('Favori silme hatası', err);
-            alert('Silinemedi');
+            showSuccess('Silinemedi');
         }
     };
 
@@ -68,10 +70,10 @@ export default function FavoritesPage() {
         setAddingToCart(productId);
         try {
             await cartApi.addItem(1, productId, 1);
-            alert('Ürün sepete eklendi!');
+            showSuccess('Ürün sepete eklendi!');
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Sepete eklenemedi';
-            alert(errorMessage);
+            showSuccess(errorMessage);
         } finally {
             setAddingToCart(null);
         }
@@ -79,8 +81,15 @@ export default function FavoritesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100 py-8">
+                <div className="container mx-auto px-4">
+                    <h1 className="text-3xl font-bold mb-8">❤️ Favorilerim</h1>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[...Array(4)].map((_, i) => (
+                            <ProductCardSkeleton key={i} />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

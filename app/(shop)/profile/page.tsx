@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface User {
     id: number;
@@ -19,6 +21,7 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState('profile');
+    const { showSuccess, showError } = useToast();
 
     const [profileData, setProfileData] = useState({
         firstName: '',
@@ -76,7 +79,7 @@ export default function ProfilePage() {
     const handleProfileSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        setMessage('');
+        showSuccess('');
 
         const token = localStorage.getItem('accessToken');
 
@@ -94,13 +97,13 @@ export default function ProfilePage() {
                 const updatedUser = { ...user, ...profileData };
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 setUser(updatedUser as User);
-                setMessage('Profil güncellendi');
+                showSuccess('Profil güncellendi');
             } else {
-                setMessage('Güncelleme başarısız');
+                showSuccess('Güncelleme başarısız');
             }
         } catch (err) {
             console.error('Profil güncelleme hatası', err);
-            setMessage('Bir hata oluştu');
+            showSuccess('Bir hata oluştu');
         } finally {
             setSaving(false);
         }
@@ -110,17 +113,17 @@ export default function ProfilePage() {
         e.preventDefault();
 
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            setMessage('Yeni şifreler eşleşmiyor');
+            showSuccess('Yeni şifreler eşleşmiyor');
             return;
         }
 
         if (passwordData.newPassword.length < 8) {
-            setMessage('Şifre en az 8 karakter olmalı');
+            showSuccess('Şifre en az 8 karakter olmalı');
             return;
         }
 
         setSaving(true);
-        setMessage('');
+        showSuccess('');
 
         const token = localStorage.getItem('accessToken');
 
@@ -139,15 +142,15 @@ export default function ProfilePage() {
             });
 
             if (res.ok) {
-                setMessage('Şifre değiştirildi');
+                showSuccess('Şifre değiştirildi');
                 setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             } else {
                 const data = await res.json();
-                setMessage(data.message || 'Şifre değiştirilemedi');
+                showSuccess(data.message || 'Şifre değiştirilemedi');
             }
         } catch (err) {
             console.error('Şifre değiştirme hatası', err);
-            setMessage('Bir hata oluştu');
+            showSuccess('Bir hata oluştu');
         } finally {
             setSaving(false);
         }
@@ -155,8 +158,40 @@ export default function ProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100 py-8">
+                <div className="container mx-auto px-4">
+                    <h1 className="text-3xl font-bold mb-8">Hesabım</h1>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <aside className="md:col-span-1">
+                            <div className="bg-white rounded-lg shadow-md p-4">
+                                <div className="text-center mb-4">
+                                    <Skeleton variant="circular" width="80px" height="80px" className="mx-auto mb-2" />
+                                    <Skeleton width="120px" height="20px" className="mx-auto mb-1" />
+                                    <Skeleton width="150px" height="16px" className="mx-auto" />
+                                </div>
+                                <div className="space-y-2">
+                                    {[...Array(4)].map((_, i) => (
+                                        <Skeleton key={i} height="40px" variant="rectangular" />
+                                    ))}
+                                </div>
+                            </div>
+                        </aside>
+                        <main className="md:col-span-3">
+                            <div className="bg-white rounded-lg shadow-md p-6">
+                                <Skeleton width="200px" height="28px" className="mb-6" />
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Skeleton height="60px" variant="rectangular" />
+                                        <Skeleton height="60px" variant="rectangular" />
+                                    </div>
+                                    <Skeleton height="60px" variant="rectangular" />
+                                    <Skeleton height="60px" variant="rectangular" />
+                                    <Skeleton width="100px" height="40px" variant="rectangular" />
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
             </div>
         );
     }

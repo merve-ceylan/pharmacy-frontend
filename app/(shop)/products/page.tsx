@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { productsApi, cartApi, categoriesApi } from '@/lib/api';
 import { Product, Category } from '@/types';
+import { useToast } from '@/contexts/ToastContext';
+import ProductCardSkeleton from '@/components/ProductCardSkeleton';
+import ButtonSpinner from '@/components/ButtonSpinner';
 
 export default function ProductsPage() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('search') || '';
+    const { showSuccess, showError } = useToast();
 
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -82,8 +87,10 @@ export default function ProductsPage() {
             });
 
             setProducts(productList);
-        } catch (err: any) {
-            setError(err.message || 'Ürünler yüklenemedi');
+            setError('');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Ürünler yüklenemedi';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -92,6 +99,7 @@ export default function ProductsPage() {
     const handleAddToCart = async (productId: number) => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
+            showError('Sepete eklemek için giriş yapmalısınız');
             window.location.href = '/login';
             return;
         }
@@ -99,15 +107,16 @@ export default function ProductsPage() {
         setAddingToCart(productId);
         try {
             await cartApi.addItem(1, productId, 1);
-            alert('Ürün sepete eklendi!');
-        } catch (err: any) {
-            alert(err.message || 'Sepete eklenemedi');
+            showSuccess('Ürün sepete eklendi! 🛒');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Sepete eklenemedi';
+            showError(errorMessage);
         } finally {
             setAddingToCart(null);
         }
     };
 
-    const handleFilterChange = (key: string, value: any) => {
+    const handleFilterChange = (key: string, value: string | boolean) => {
         setFilters({ ...filters, [key]: value });
     };
 
@@ -128,7 +137,7 @@ export default function ProductsPage() {
                 <div className="flex flex-col md:flex-row gap-8">
                     {/* Filters Sidebar */}
                     <aside className="w-full md:w-64 shrink-0">
-                        <div className="bg-white rounded-lg shadow-md p-4">
+                        <div className="bg-white rounded-lg shadow-md p-4 sticky top-4">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-lg">Filtreler</h2>
                                 <button
@@ -217,21 +226,33 @@ export default function ProductsPage() {
                             <h1 className="text-2xl font-bold">
                                 {searchQuery ? `"${searchQuery}" için sonuçlar` : 'Tüm Ürünler'}
                             </h1>
-                            <span className="text-gray-500">{products.length} ürün</span>
+                            {!loading && <span className="text-gray-500">{products.length} ürün</span>}
                         </div>
 
                         {loading ? (
-                            <div className="flex items-center justify-center h-64">
-                                <div className="text-xl">Yükleniyor...</div>
+                            /* Skeleton Loading */
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[...Array(6)].map((_, i) => (
+                                    <ProductCardSkeleton key={i} />
+                                ))}
                             </div>
                         ) : error ? (
-                            <div className="text-center text-red-600 py-8">{error}</div>
+                            <div className="bg-red-50 text-red-600 py-8 px-4 rounded-lg text-center">
+                                <p className="text-lg mb-2">😕 {error}</p>
+                                <button
+                                    onClick={loadProducts}
+                                    className="text-red-700 hover:underline font-medium"
+                                >
+                                    Tekrar Dene
+                                </button>
+                            </div>
                         ) : products.length === 0 ? (
-                            <div className="text-center text-gray-500 py-8">
-                                <p className="text-lg mb-2">Ürün bulunamadı</p>
+                            <div className="bg-white rounded-lg shadow-md py-12 px-4 text-center">
+                                <div className="text-6xl mb-4">🔍</div>
+                                <p className="text-gray-500 text-lg mb-4">Ürün bulunamadı</p>
                                 <button
                                     onClick={clearFilters}
-                                    className="text-blue-600 hover:underline"
+                                    className="text-blue-600 hover:underline font-medium"
                                 >
                                     Filtreleri temizle
                                 </button>
@@ -241,52 +262,71 @@ export default function ProductsPage() {
                                 {products.map((product) => (
                                     <div
                                         key={product.id}
-                                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition"
+                                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group"
                                     >
-                                        <a href={`/products/${product.slug}`} className="block">
-                                            <div className="h-48 bg-gray-200 flex items-center justify-center text-6xl">
+                                        <Link href={`/products/${product.slug}`} className="block">
+                                            <div className="h-48 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform duration-300">
                                                 💊
                                             </div>
-                                        </a>
+                                        </Link>
 
                                         <div className="p-4">
-                                            <a href={`/products/${product.slug}`}>
-                                                <h2 className="text-lg font-semibold mb-2 hover:text-blue-600">
+                                            <Link href={`/products/${product.slug}`}>
+                                                <h2 className="text-lg font-semibold mb-2 hover:text-blue-600 transition-colors line-clamp-2">
                                                     {product.name}
                                                 </h2>
-                                            </a>
+                                            </Link>
 
                                             <p className="text-gray-500 text-sm mb-2">{product.categoryName}</p>
 
                                             <div className="flex items-center gap-2 mb-2">
                                                 {product.discountedPrice ? (
                                                     <>
-                            <span className="text-gray-400 line-through">
+                            <span className="text-gray-400 line-through text-sm">
                               {product.price.toFixed(2)} TL
                             </span>
-                                                        <span className="text-green-600 font-bold">
+                                                        <span className="text-green-600 font-bold text-lg">
                               {product.discountedPrice.toFixed(2)} TL
+                            </span>
+                                                        <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
+                              %{Math.round((1 - product.discountedPrice / product.price) * 100)}
                             </span>
                                                     </>
                                                 ) : (
-                                                    <span className="font-bold">{product.price.toFixed(2)} TL</span>
+                                                    <span className="font-bold text-lg">{product.price.toFixed(2)} TL</span>
                                                 )}
                                             </div>
 
                                             <div className="flex items-center gap-2 mb-4">
                                                 {product.inStock ? (
-                                                    <span className="text-green-600 text-sm">✓ Stokta</span>
+                                                    <span className="text-green-600 text-sm flex items-center gap-1">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Stokta
+                          </span>
                                                 ) : (
-                                                    <span className="text-red-600 text-sm">✗ Stokta Yok</span>
+                                                    <span className="text-red-600 text-sm flex items-center gap-1">
+                            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                            Stokta Yok
+                          </span>
                                                 )}
                                             </div>
 
                                             <button
                                                 onClick={() => handleAddToCart(product.id)}
                                                 disabled={!product.inStock || addingToCart === product.id}
-                                                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400"
+                                                className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                             >
-                                                {addingToCart === product.id ? 'Ekleniyor...' : 'Sepete Ekle'}
+                                                {addingToCart === product.id ? (
+                                                    <>
+                                                        <ButtonSpinner />
+                                                        <span>Ekleniyor...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>🛒</span>
+                                                        <span>Sepete Ekle</span>
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     </div>
