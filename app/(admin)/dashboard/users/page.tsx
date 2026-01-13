@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface User {
     id: number;
@@ -17,10 +20,12 @@ interface User {
 
 export default function AdminUsersPage() {
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const [togglingId, setTogglingId] = useState<number | null>(null);
 
     useEffect(() => {
         checkAuth();
@@ -51,7 +56,8 @@ export default function AdminUsersPage() {
                 setUsers(data.content || data || []);
             }
         } catch (err) {
-            console.error('Kullanıcılar yüklenemedi');
+            console.error('Kullanıcılar yüklenemedi', err);
+            showError('Kullanıcılar yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -61,16 +67,23 @@ export default function AdminUsersPage() {
         const token = localStorage.getItem('accessToken');
         const endpoint = currentActive ? 'deactivate' : 'activate';
 
+        setTogglingId(userId);
         try {
             const res = await fetch(`http://localhost:8080/api/admin/users/${userId}/${endpoint}`, {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
+                showSuccess(currentActive ? 'Kullanıcı pasifleştirildi' : 'Kullanıcı aktifleştirildi');
                 loadUsers();
+            } else {
+                showError('İşlem başarısız');
             }
         } catch (err) {
-            alert('İşlem başarısız');
+            console.error('Toggle error:', err);
+            showError('İşlem başarısız');
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -106,8 +119,58 @@ export default function AdminUsersPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="60px" height="24px" />
+                            <Skeleton width="200px" height="32px" />
+                        </div>
+                        <Skeleton width="130px" height="40px" variant="rectangular" />
+                    </div>
+                </div>
+                <div className="container mx-auto px-4 py-8">
+                    {/* Filters Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <Skeleton width="100%" height="40px" variant="rectangular" className="flex-1" />
+                            <div className="flex gap-2">
+                                {[...Array(4)].map((_, i) => (
+                                    <Skeleton key={i} width="80px" height="40px" variant="rectangular" />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                            <tr>
+                                {[...Array(6)].map((_, i) => (
+                                    <th key={i} className="px-6 py-3 text-left">
+                                        <Skeleton width="70px" height="16px" />
+                                    </th>
+                                ))}
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                            {[...Array(5)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4">
+                                        <Skeleton width="120px" height="20px" className="mb-1" />
+                                        <Skeleton width="150px" height="16px" />
+                                    </td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="100px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="60px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="100px" height="20px" /></td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -117,14 +180,14 @@ export default function AdminUsersPage() {
             <div className="bg-white shadow-sm">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <a href="/dashboard" className="text-gray-500 hover:text-gray-700">
+                        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
                             ← Geri
-                        </a>
+                        </Link>
                         <h1 className="text-2xl font-bold">👥 Personel Yönetimi</h1>
                     </div>
                     <button
                         onClick={() => router.push('/dashboard/users/new')}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                     >
                         + Yeni Personel
                     </button>
@@ -149,7 +212,7 @@ export default function AdminUsersPage() {
                                 <button
                                     key={role}
                                     onClick={() => setFilter(role)}
-                                    className={`px-4 py-2 rounded-lg text-sm ${
+                                    className={`px-4 py-2 rounded-lg text-sm transition ${
                                         filter === role
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -197,12 +260,13 @@ export default function AdminUsersPage() {
                         {filteredUsers.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                    <div className="text-4xl mb-2">👥</div>
                                     Kullanıcı bulunamadı
                                 </td>
                             </tr>
                         ) : (
                             filteredUsers.map((user) => (
-                                <tr key={user.id} className="hover:bg-gray-50">
+                                <tr key={user.id} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4">
                                         <div>
                                             <p className="font-medium">
@@ -216,7 +280,7 @@ export default function AdminUsersPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
                         <span
-                            className={`px-2 py-1 rounded-full text-xs ${
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 user.active
                                     ? 'bg-green-100 text-green-800'
                                     : 'bg-gray-100 text-gray-800'
@@ -242,13 +306,14 @@ export default function AdminUsersPage() {
                                             </button>
                                             <button
                                                 onClick={() => toggleActive(user.id, user.active)}
-                                                className={`text-sm ${
+                                                disabled={togglingId === user.id}
+                                                className={`text-sm disabled:opacity-50 ${
                                                     user.active
                                                         ? 'text-red-600 hover:underline'
                                                         : 'text-green-600 hover:underline'
                                                 }`}
                                             >
-                                                {user.active ? 'Pasif Yap' : 'Aktif Yap'}
+                                                {togglingId === user.id ? '...' : user.active ? 'Pasif Yap' : 'Aktif Yap'}
                                             </button>
                                         </div>
                                     </td>

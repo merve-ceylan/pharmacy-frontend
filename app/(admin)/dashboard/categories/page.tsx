@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
+import ButtonSpinner from '@/components/ButtonSpinner';
 
 interface Category {
     id: number;
@@ -14,12 +17,12 @@ interface Category {
 
 export default function AdminCategoriesPage() {
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [submitting, setSubmitting] = useState(false);
     const [userRole, setUserRole] = useState('');
     const [formData, setFormData] = useState({
         name: '',
@@ -37,17 +40,15 @@ export default function AdminCategoriesPage() {
         const user = JSON.parse(userData);
         setUserRole(user.role);
 
-        // SUPER_ADMIN, PHARMACY_OWNER, STAFF kategorileri görebilir
         if (!['SUPER_ADMIN', 'PHARMACY_OWNER', 'STAFF'].includes(user.role)) {
             router.push('/');
             return;
         }
-        loadCategories(user.role);
+        loadCategories();
     }, [router]);
 
-    const loadCategories = async (role: string) => {
+    const loadCategories = async () => {
         try {
-            // Public endpoint kullan - herkes görebilir
             const res = await fetch('http://localhost:8080/api/public/categories');
             if (res.ok) {
                 const data = await res.json();
@@ -55,7 +56,7 @@ export default function AdminCategoriesPage() {
             }
         } catch (err) {
             console.error('Kategoriler yüklenemedi:', err);
-            setError('Kategoriler yüklenemedi');
+            showError('Kategoriler yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -63,11 +64,10 @@ export default function AdminCategoriesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setSubmitting(true);
 
         const token = localStorage.getItem('accessToken');
 
-        // Slug oluştur
         const slug = formData.slug || formData.name.toLowerCase()
             .replace(/ğ/g, 'g')
             .replace(/ü/g, 'u')
@@ -98,23 +98,24 @@ export default function AdminCategoriesPage() {
             });
 
             if (res.ok) {
-                setSuccess(editingCategory ? 'Kategori güncellendi!' : 'Kategori eklendi!');
-                setTimeout(() => setSuccess(''), 3000);
+                showSuccess(editingCategory ? 'Kategori güncellendi!' : 'Kategori eklendi!');
                 setShowModal(false);
                 setEditingCategory(null);
                 setFormData({ name: '', slug: '', description: '' });
-                loadCategories(userRole);
+                loadCategories();
             } else {
                 const data = await res.json().catch(() => ({}));
                 if (res.status === 403) {
-                    setError('Bu işlem için yetkiniz yok. Sadece Super Admin kategori ekleyebilir.');
+                    showError('Bu işlem için yetkiniz yok. Sadece Super Admin kategori ekleyebilir.');
                 } else {
-                    setError(data.message || 'İşlem başarısız');
+                    showError(data.message || 'İşlem başarısız');
                 }
             }
         } catch (err) {
             console.error('Kategori kaydetme hatası:', err);
-            setError('Bir hata oluştu');
+            showError('Bir hata oluştu');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -125,12 +126,11 @@ export default function AdminCategoriesPage() {
             slug: category.slug,
             description: category.description || '',
         });
-        setError('');
         setShowModal(true);
     };
 
     const handleDelete = async (categoryId: number) => {
-        if (!confirm('Bu kategoriyi silmek istediğinize emin misiniz?')) return;
+        if (!confirm('Bu kategoriyi pasifleştirmek istediğinize emin misiniz?')) return;
 
         const token = localStorage.getItem('accessToken');
         try {
@@ -139,37 +139,84 @@ export default function AdminCategoriesPage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
-                setSuccess('Kategori pasifleştirildi!');
-                setTimeout(() => setSuccess(''), 3000);
-                loadCategories(userRole);
+                showSuccess('Kategori pasifleştirildi!');
+                loadCategories();
             } else {
                 if (res.status === 403) {
-                    setError('Bu işlem için yetkiniz yok.');
+                    showError('Bu işlem için yetkiniz yok.');
                 } else {
-                    setError('İşlem başarısız');
+                    showError('İşlem başarısız');
                 }
             }
         } catch (err) {
             console.error('Silme hatası:', err);
-            setError('Bir hata oluştu');
+            showError('Bir hata oluştu');
         }
     };
 
     const openNewModal = () => {
         if (userRole !== 'SUPER_ADMIN') {
-            setError('Sadece Super Admin yeni kategori ekleyebilir.');
+            showError('Sadece Super Admin yeni kategori ekleyebilir.');
             return;
         }
         setEditingCategory(null);
         setFormData({ name: '', slug: '', description: '' });
-        setError('');
         setShowModal(true);
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="60px" height="24px" />
+                            <Skeleton width="200px" height="32px" />
+                        </div>
+                        <Skeleton width="130px" height="40px" variant="rectangular" />
+                    </div>
+                </div>
+
+                <div className="container mx-auto px-4 py-8">
+                    {/* Stats Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-4">
+                                <Skeleton width="100px" height="16px" className="mb-2" />
+                                <Skeleton width="50px" height="32px" />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                            <tr>
+                                {[...Array(4)].map((_, i) => (
+                                    <th key={i} className="px-6 py-3 text-left">
+                                        <Skeleton width="70px" height="16px" />
+                                    </th>
+                                ))}
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                            {[...Array(5)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4">
+                                        <Skeleton width="120px" height="20px" className="mb-1" />
+                                        <Skeleton width="180px" height="16px" />
+                                    </td>
+                                    <td className="px-6 py-4"><Skeleton width="100px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="60px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="120px" height="20px" /></td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -187,7 +234,7 @@ export default function AdminCategoriesPage() {
                     {userRole === 'SUPER_ADMIN' && (
                         <button
                             onClick={openNewModal}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                         >
                             + Yeni Kategori
                         </button>
@@ -196,26 +243,20 @@ export default function AdminCategoriesPage() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
-                {error && (
-                    <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{error}</div>
-                )}
-                {success && (
-                    <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-4">{success}</div>
-                )}
-
                 {userRole !== 'SUPER_ADMIN' && (
-                    <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg mb-4">
-                        ℹ️ Kategori ekleme/düzenleme sadece Super Admin tarafından yapılabilir.
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mb-4 flex items-center gap-2">
+                        <span>ℹ️</span>
+                        <span>Kategori ekleme/düzenleme sadece Super Admin tarafından yapılabilir.</span>
                     </div>
                 )}
 
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Kategori</p>
                         <p className="text-2xl font-bold">{categories.length}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Aktif Kategori</p>
                         <p className="text-2xl font-bold text-green-600">{categories.filter(c => c.active).length}</p>
                     </div>
@@ -237,12 +278,13 @@ export default function AdminCategoriesPage() {
                         {categories.length === 0 ? (
                             <tr>
                                 <td colSpan={userRole === 'SUPER_ADMIN' ? 4 : 3} className="px-6 py-8 text-center text-gray-500">
+                                    <div className="text-4xl mb-2">📁</div>
                                     Henüz kategori bulunmuyor
                                 </td>
                             </tr>
                         ) : (
                             categories.map((category) => (
-                                <tr key={category.id} className="hover:bg-gray-50">
+                                <tr key={category.id} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4">
                                         <div>
                                             <p className="font-medium">{category.name}</p>
@@ -253,7 +295,7 @@ export default function AdminCategoriesPage() {
                                     </td>
                                     <td className="px-6 py-4 text-gray-500">{category.slug}</td>
                                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           category.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {category.active ? 'Aktif' : 'Pasif'}
@@ -287,55 +329,60 @@ export default function AdminCategoriesPage() {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
                         <h2 className="text-xl font-bold mb-4">
                             {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
                         </h2>
-                        {error && (
-                            <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm">{error}</div>
-                        )}
                         <form onSubmit={handleSubmit}>
                             <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Kategori Adı *</label>
+                                <label className="block text-gray-700 mb-2 font-medium">Kategori Adı *</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition"
                                     required
                                 />
                             </div>
                             <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Slug (URL)</label>
+                                <label className="block text-gray-700 mb-2 font-medium">Slug (URL)</label>
                                 <input
                                     type="text"
                                     value={formData.slug}
                                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition"
                                     placeholder="Otomatik oluşturulur"
                                 />
                             </div>
                             <div className="mb-6">
-                                <label className="block text-gray-700 mb-2">Açıklama</label>
+                                <label className="block text-gray-700 mb-2 font-medium">Açıklama</label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition"
                                     rows={3}
                                 />
                             </div>
                             <div className="flex gap-4">
                                 <button
                                     type="submit"
-                                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                                    disabled={submitting}
+                                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 flex items-center justify-center gap-2"
                                 >
-                                    {editingCategory ? 'Güncelle' : 'Ekle'}
+                                    {submitting ? (
+                                        <>
+                                            <ButtonSpinner />
+                                            <span>Kaydediliyor...</span>
+                                        </>
+                                    ) : (
+                                        editingCategory ? 'Güncelle' : 'Ekle'
+                                    )}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                                 >
                                     İptal
                                 </button>

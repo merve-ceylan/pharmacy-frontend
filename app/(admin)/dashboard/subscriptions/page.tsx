@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface Subscription {
     id: number;
@@ -21,8 +23,18 @@ const initialSubs: Subscription[] = [
 ];
 
 export default function SubscriptionsPage() {
-    const [subscriptions] = useState<Subscription[]>(initialSubs);
+    const { showSuccess } = useToast();
+    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [loading, setLoading] = useState(true);
     const [filterPlan, setFilterPlan] = useState('ALL');
+
+    useEffect(() => {
+        // Simulate loading
+        setTimeout(() => {
+            setSubscriptions(initialSubs);
+            setLoading(false);
+        }, 500);
+    }, []);
 
     const filteredSubs = subscriptions.filter(s => filterPlan === 'ALL' || s.plan === filterPlan);
 
@@ -40,6 +52,74 @@ export default function SubscriptionsPage() {
         return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-100">
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="60px" height="24px" />
+                            <Skeleton width="220px" height="32px" />
+                        </div>
+                    </div>
+                </div>
+                <div className="container mx-auto px-4 py-8">
+                    {/* Stats Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-4">
+                                <Skeleton width="100px" height="16px" className="mb-2" />
+                                <Skeleton width="60px" height="32px" />
+                            </div>
+                        ))}
+                    </div>
+                    {/* Filter Skeleton */}
+                    <Skeleton width="150px" height="40px" variant="rectangular" className="mb-6" />
+                    {/* Plans Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+                                <Skeleton width="150px" height="28px" className="mb-4" />
+                                <Skeleton width="120px" height="36px" className="mb-4" />
+                                <div className="space-y-2">
+                                    {[...Array(4)].map((_, j) => (
+                                        <Skeleton key={j} width="180px" height="20px" />
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                            <tr>
+                                {[...Array(6)].map((_, i) => (
+                                    <th key={i} className="px-6 py-3 text-left">
+                                        <Skeleton width="60px" height="16px" />
+                                    </th>
+                                ))}
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                            {[...Array(4)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4"><Skeleton width="120px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="70px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="60px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="30px" height="20px" /></td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="bg-white shadow-sm">
@@ -53,19 +133,19 @@ export default function SubscriptionsPage() {
 
             <div className="container mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Abonelik</p>
                         <p className="text-2xl font-bold">{subscriptions.length}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Aktif</p>
                         <p className="text-2xl font-bold text-green-600">{activeCount}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Premium</p>
                         <p className="text-2xl font-bold text-purple-600">{premiumCount}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Aylık Gelir</p>
                         <p className="text-2xl font-bold text-blue-600">{totalRevenue} TL</p>
                     </div>
@@ -84,7 +164,7 @@ export default function SubscriptionsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-gray-200">
+                    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-gray-200 hover:shadow-lg transition">
                         <h3 className="text-xl font-bold mb-2">📦 Basic Plan</h3>
                         <p className="text-3xl font-bold text-blue-600 mb-4">199 TL<span className="text-sm text-gray-500">/ay</span></p>
                         <ul className="space-y-2 text-gray-600">
@@ -94,7 +174,7 @@ export default function SubscriptionsPage() {
                             <li>❌ API erişimi</li>
                         </ul>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-purple-500">
+                    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-purple-500 hover:shadow-lg transition">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="text-xl font-bold">👑 Premium Plan</h3>
                             <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">Önerilen</span>
@@ -122,26 +202,35 @@ export default function SubscriptionsPage() {
                         </tr>
                         </thead>
                         <tbody className="divide-y">
-                        {filteredSubs.map((sub) => (
-                            <tr key={sub.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 font-medium">{sub.pharmacyName}</td>
-                                <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        sub.plan === 'Premium' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {sub.plan}
-                    </span>
-                                </td>
-                                <td className="px-6 py-4">{sub.price} TL/ay</td>
-                                <td className="px-6 py-4">{new Date(sub.endDate).toLocaleDateString('tr-TR')}</td>
-                                <td className="px-6 py-4">{getStatusBadge(sub.status)}</td>
-                                <td className="px-6 py-4">
-                    <span className={sub.autoRenew ? 'text-green-600' : 'text-gray-500'}>
-                      {sub.autoRenew ? '✅' : '❌'}
-                    </span>
+                        {filteredSubs.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                    <div className="text-4xl mb-2">💳</div>
+                                    Abonelik bulunamadı
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredSubs.map((sub) => (
+                                <tr key={sub.id} className="hover:bg-gray-50 transition">
+                                    <td className="px-6 py-4 font-medium">{sub.pharmacyName}</td>
+                                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          sub.plan === 'Premium' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {sub.plan}
+                      </span>
+                                    </td>
+                                    <td className="px-6 py-4">{sub.price} TL/ay</td>
+                                    <td className="px-6 py-4">{new Date(sub.endDate).toLocaleDateString('tr-TR')}</td>
+                                    <td className="px-6 py-4">{getStatusBadge(sub.status)}</td>
+                                    <td className="px-6 py-4">
+                      <span className={sub.autoRenew ? 'text-green-600' : 'text-gray-500'}>
+                        {sub.autoRenew ? '✅' : '❌'}
+                      </span>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                         </tbody>
                     </table>
                 </div>

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface User {
     id: number;
@@ -22,6 +24,7 @@ interface Order {
 
 export default function DashboardPage() {
     const router = useRouter();
+    const { showError } = useToast();
     const [user, setUser] = useState<User | null>(null);
     const [stats, setStats] = useState({
         todayOrders: 0,
@@ -80,6 +83,7 @@ export default function DashboardPage() {
                     }
                 } catch (err) {
                     console.error('Stats fetch error:', err);
+                    showError('İstatistikler yüklenemedi');
                 }
 
                 try {
@@ -92,6 +96,7 @@ export default function DashboardPage() {
                     }
                 } catch (err) {
                     console.error('Orders fetch error:', err);
+                    showError('Siparişler yüklenemedi');
                 }
             }
         } finally {
@@ -132,8 +137,69 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                        <div>
+                            <Skeleton width="250px" height="32px" className="mb-2" />
+                            <Skeleton width="150px" height="20px" />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="120px" height="20px" />
+                            <Skeleton width="80px" height="36px" variant="rectangular" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="container mx-auto px-4 py-8">
+                    {/* Stats Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <Skeleton width="100px" height="16px" className="mb-2" />
+                                        <Skeleton width="80px" height="28px" />
+                                    </div>
+                                    <Skeleton variant="rectangular" width="48px" height="48px" className="rounded-lg" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Quick Actions Skeleton */}
+                    <Skeleton width="150px" height="24px" className="mb-4" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                        {[...Array(6)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6 flex items-center gap-4">
+                                <Skeleton variant="circular" width="48px" height="48px" />
+                                <div>
+                                    <Skeleton width="120px" height="20px" className="mb-2" />
+                                    <Skeleton width="150px" height="16px" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md">
+                        <div className="p-6 border-b">
+                            <Skeleton width="150px" height="24px" />
+                        </div>
+                        <div className="p-6">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="flex items-center justify-between py-3 border-b last:border-b-0">
+                                    <Skeleton width="100px" height="20px" />
+                                    <Skeleton width="120px" height="20px" />
+                                    <Skeleton width="80px" height="20px" />
+                                    <Skeleton width="80px" height="24px" variant="rectangular" />
+                                    <Skeleton width="60px" height="20px" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -182,7 +248,7 @@ export default function DashboardPage() {
             <div className="container mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {statCards.map((stat, index) => (
-                        <div key={index} className="bg-white rounded-lg shadow-md p-6">
+                        <div key={index} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-gray-500 text-sm">{stat.title}</p>

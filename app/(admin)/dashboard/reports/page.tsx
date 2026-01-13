@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface ReportData {
     totalOrders: number;
@@ -16,6 +19,7 @@ interface ReportData {
 
 export default function ReportsPage() {
     const router = useRouter();
+    const { showError } = useToast();
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState('week');
@@ -39,6 +43,7 @@ export default function ReportsPage() {
     };
 
     const loadReports = async () => {
+        setLoading(true);
         const token = localStorage.getItem('accessToken');
         try {
             const res = await fetch(`http://localhost:8080/api/admin/reports?range=${dateRange}`, {
@@ -82,7 +87,8 @@ export default function ReportsPage() {
                 });
             }
         } catch (err) {
-            console.error('Raporlar yüklenemedi');
+            console.error('Raporlar yüklenemedi', err);
+            showError('Raporlar yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -90,16 +96,87 @@ export default function ReportsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="60px" height="24px" />
+                            <Skeleton width="150px" height="32px" />
+                        </div>
+                        <div className="flex gap-2">
+                            {[...Array(3)].map((_, i) => (
+                                <Skeleton key={i} width="80px" height="40px" variant="rectangular" />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="container mx-auto px-4 py-8">
+                    {/* Summary Cards Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                        {[...Array(5)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+                                <Skeleton width="100px" height="16px" className="mb-2" />
+                                <Skeleton width="80px" height="36px" />
+                            </div>
+                        ))}
+                    </div>
+                    {/* Charts Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <Skeleton width="150px" height="24px" className="mb-4" />
+                            <div className="space-y-3">
+                                {[...Array(7)].map((_, i) => (
+                                    <div key={i} className="flex items-center gap-4">
+                                        <Skeleton width="60px" height="20px" />
+                                        <Skeleton width="100%" height="24px" variant="rectangular" className="flex-1" />
+                                        <Skeleton width="80px" height="20px" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <Skeleton width="180px" height="24px" className="mb-4" />
+                            <div className="space-y-3">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="flex items-center gap-4">
+                                        <Skeleton width="80px" height="20px" />
+                                        <Skeleton width="100%" height="16px" variant="rectangular" className="flex-1" />
+                                        <Skeleton width="40px" height="20px" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
+                            <Skeleton width="200px" height="24px" className="mb-4" />
+                            <div className="space-y-3">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex justify-between py-2 border-b">
+                                        <Skeleton width="150px" height="20px" />
+                                        <Skeleton width="60px" height="20px" />
+                                        <Skeleton width="80px" height="20px" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
 
     if (!data) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-red-600">Rapor verileri yüklenemedi</div>
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="text-center bg-white p-8 rounded-xl shadow-lg">
+                    <div className="text-6xl mb-4">📊</div>
+                    <p className="text-red-600 text-lg">Rapor verileri yüklenemedi</p>
+                    <button
+                        onClick={() => loadReports()}
+                        className="mt-4 text-blue-600 hover:underline"
+                    >
+                        Tekrar Dene
+                    </button>
+                </div>
             </div>
         );
     }
@@ -111,9 +188,9 @@ export default function ReportsPage() {
             <div className="bg-white shadow-sm">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <a href="/dashboard" className="text-gray-500 hover:text-gray-700">
+                        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
                             ← Geri
-                        </a>
+                        </Link>
                         <h1 className="text-2xl font-bold">📊 Raporlar</h1>
                     </div>
                     <div className="flex gap-2">
@@ -121,7 +198,7 @@ export default function ReportsPage() {
                             <button
                                 key={range}
                                 onClick={() => setDateRange(range)}
-                                className={`px-4 py-2 rounded-lg text-sm ${
+                                className={`px-4 py-2 rounded-lg text-sm transition ${
                                     dateRange === range
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -137,25 +214,25 @@ export default function ReportsPage() {
             <div className="container mx-auto px-4 py-8">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                    <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Sipariş</p>
                         <p className="text-3xl font-bold">{data.totalOrders}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Gelir</p>
                         <p className="text-3xl font-bold text-green-600">
                             {data.totalRevenue.toLocaleString('tr-TR')} TL
                         </p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Ortalama Sipariş</p>
                         <p className="text-3xl font-bold">{data.averageOrderValue.toFixed(2)} TL</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Ürün</p>
                         <p className="text-3xl font-bold">{data.totalProducts}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Müşteri</p>
                         <p className="text-3xl font-bold">{data.totalCustomers}</p>
                     </div>
@@ -163,8 +240,8 @@ export default function ReportsPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Revenue Chart */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-bold mb-4">Günlük Gelir</h2>
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                        <h2 className="text-lg font-bold mb-4">📈 Günlük Gelir</h2>
                         <div className="space-y-3">
                             {data.revenueByDay.map((day, index) => (
                                 <div key={index} className="flex items-center gap-4">
@@ -176,7 +253,7 @@ export default function ReportsPage() {
                   </span>
                                     <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
                                         <div
-                                            className="bg-blue-500 h-full rounded-full"
+                                            className="bg-blue-500 h-full rounded-full transition-all duration-500"
                                             style={{ width: `${(day.revenue / maxRevenue) * 100}%` }}
                                         ></div>
                                     </div>
@@ -189,8 +266,8 @@ export default function ReportsPage() {
                     </div>
 
                     {/* Order Status */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-bold mb-4">Sipariş Durumları</h2>
+                    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                        <h2 className="text-lg font-bold mb-4">📦 Sipariş Durumları</h2>
                         <div className="space-y-3">
                             {Object.entries(data.ordersByStatus).map(([status, count]) => {
                                 const labels: Record<string, string> = {
@@ -217,7 +294,7 @@ export default function ReportsPage() {
                                         <span className="text-gray-600 text-sm w-28">{labels[status]}</span>
                                         <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden">
                                             <div
-                                                className={`${colors[status]} h-full rounded-full`}
+                                                className={`${colors[status]} h-full rounded-full transition-all duration-500`}
                                                 style={{ width: `${percentage}%` }}
                                             ></div>
                                         </div>
@@ -229,8 +306,8 @@ export default function ReportsPage() {
                     </div>
 
                     {/* Top Products */}
-                    <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
-                        <h2 className="text-lg font-bold mb-4">En Çok Satan Ürünler</h2>
+                    <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-2 hover:shadow-lg transition">
+                        <h2 className="text-lg font-bold mb-4">🏆 En Çok Satan Ürünler</h2>
                         <table className="w-full">
                             <thead>
                             <tr className="border-b">
@@ -241,7 +318,7 @@ export default function ReportsPage() {
                             </thead>
                             <tbody>
                             {data.topProducts.map((product, index) => (
-                                <tr key={index} className="border-b last:border-0">
+                                <tr key={index} className="border-b last:border-0 hover:bg-gray-50 transition">
                                     <td className="py-3">
                                         <div className="flex items-center gap-3">
                                             <span className="text-gray-400">{index + 1}.</span>

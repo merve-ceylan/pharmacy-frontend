@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface Product {
     id: number;
@@ -17,11 +19,11 @@ interface Product {
 
 export default function AdminProductsPage() {
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [filter, setFilter] = useState('ALL');
+    const [togglingId, setTogglingId] = useState<number | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -49,7 +51,7 @@ export default function AdminProductsPage() {
                 setProducts(data.content || []);
             }
         } catch (err) {
-            setError('Ürünler yüklenemedi');
+            showError('Ürünler yüklenemedi');
             console.error('Products load error:', err);
         } finally {
             setLoading(false);
@@ -60,19 +62,23 @@ export default function AdminProductsPage() {
         const token = localStorage.getItem('accessToken');
         const endpoint = currentActive ? 'deactivate' : 'activate';
 
+        setTogglingId(productId);
         try {
             const res = await fetch(`http://localhost:8080/api/staff/products/${productId}/${endpoint}`, {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
-                setSuccess(currentActive ? 'Ürün pasif yapıldı' : 'Ürün aktif yapıldı');
-                setTimeout(() => setSuccess(''), 3000);
+                showSuccess(currentActive ? 'Ürün pasif yapıldı' : 'Ürün aktif yapıldı');
                 loadProducts();
+            } else {
+                showError('İşlem başarısız');
             }
         } catch (err) {
-            setError('İşlem başarısız');
+            showError('İşlem başarısız');
             console.error('Toggle error:', err);
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -85,8 +91,65 @@ export default function AdminProductsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Skeleton width="60px" height="24px" />
+                            <Skeleton width="180px" height="32px" />
+                        </div>
+                        <Skeleton width="120px" height="40px" variant="rectangular" />
+                    </div>
+                </div>
+
+                <div className="container mx-auto px-4 py-8">
+                    {/* Stats Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-4">
+                                <Skeleton width="80px" height="16px" className="mb-2" />
+                                <Skeleton width="60px" height="32px" />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Filter Skeleton */}
+                    <Skeleton width="200px" height="40px" className="mb-4" variant="rectangular" />
+
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left"><Skeleton width="60px" height="16px" /></th>
+                                <th className="px-6 py-3 text-left"><Skeleton width="40px" height="16px" /></th>
+                                <th className="px-6 py-3 text-left"><Skeleton width="50px" height="16px" /></th>
+                                <th className="px-6 py-3 text-left"><Skeleton width="40px" height="16px" /></th>
+                                <th className="px-6 py-3 text-left"><Skeleton width="50px" height="16px" /></th>
+                                <th className="px-6 py-3 text-left"><Skeleton width="70px" height="16px" /></th>
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                            {[...Array(5)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton variant="circular" width="40px" height="40px" />
+                                            <Skeleton width="150px" height="20px" />
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="70px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="40px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="60px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="100px" height="20px" /></td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -103,7 +166,7 @@ export default function AdminProductsPage() {
                     </div>
                     <button
                         onClick={() => router.push('/dashboard/products/new')}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                     >
                         + Yeni Ürün
                     </button>
@@ -111,28 +174,21 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
-                {error && (
-                    <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{error}</div>
-                )}
-                {success && (
-                    <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-4">{success}</div>
-                )}
-
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Ürün</p>
                         <p className="text-2xl font-bold">{products.length}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Aktif</p>
                         <p className="text-2xl font-bold text-green-600">{products.filter(p => p.active).length}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Pasif</p>
                         <p className="text-2xl font-bold text-red-600">{products.filter(p => !p.active).length}</p>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Düşük Stok</p>
                         <p className="text-2xl font-bold text-orange-600">{products.filter(p => p.stockQuantity < 10).length}</p>
                     </div>
@@ -168,12 +224,13 @@ export default function AdminProductsPage() {
                         {filteredProducts.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                    <div className="text-4xl mb-2">📦</div>
                                     {filter === 'ALL' ? 'Henüz ürün bulunmuyor' : 'Bu filtreye uygun ürün yok'}
                                 </td>
                             </tr>
                         ) : (
                             filteredProducts.map((product) => (
-                                <tr key={product.id} className={`hover:bg-gray-50 ${!product.active ? 'bg-gray-50 opacity-60' : ''}`}>
+                                <tr key={product.id} className={`hover:bg-gray-50 transition ${!product.active ? 'bg-gray-50 opacity-60' : ''}`}>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <span className="text-2xl">💊</span>
@@ -200,7 +257,7 @@ export default function AdminProductsPage() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                      <span className={`${
+                      <span className={`font-medium ${
                           product.stockQuantity === 0 ? 'text-red-600' :
                               product.stockQuantity < 10 ? 'text-orange-600' : 'text-green-600'
                       }`}>
@@ -208,7 +265,7 @@ export default function AdminProductsPage() {
                       </span>
                                     </td>
                                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           product.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {product.active ? 'Aktif' : 'Pasif'}
@@ -224,9 +281,10 @@ export default function AdminProductsPage() {
                                             </button>
                                             <button
                                                 onClick={() => toggleActive(product.id, product.active)}
-                                                className={`text-sm ${product.active ? 'text-red-600' : 'text-green-600'} hover:underline`}
+                                                disabled={togglingId === product.id}
+                                                className={`text-sm ${product.active ? 'text-red-600' : 'text-green-600'} hover:underline disabled:opacity-50`}
                                             >
-                                                {product.active ? 'Pasif Yap' : 'Aktif Yap'}
+                                                {togglingId === product.id ? '...' : product.active ? 'Pasif Yap' : 'Aktif Yap'}
                                             </button>
                                         </div>
                                     </td>

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useToast } from '@/contexts/ToastContext';
+import Skeleton from '@/components/Skeleton';
 
 interface Order {
     id: number;
@@ -16,9 +19,11 @@ interface Order {
 
 export default function AdminOrdersPage() {
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
+    const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
 
     useEffect(() => {
         checkAuth();
@@ -49,7 +54,8 @@ export default function AdminOrdersPage() {
                 setOrders(data.content || []);
             }
         } catch (err) {
-            console.error('Siparişler yüklenemedi');
+            showError('Siparişler yüklenemedi');
+            console.error('Siparişler yüklenemedi', err);
         } finally {
             setLoading(false);
         }
@@ -57,6 +63,7 @@ export default function AdminOrdersPage() {
 
     const updateStatus = async (orderNumber: string, newStatus: string) => {
         const token = localStorage.getItem('accessToken');
+        setUpdatingOrder(orderNumber);
         try {
             const res = await fetch(`http://localhost:8080/api/staff/orders/${orderNumber}/status`, {
                 method: 'PATCH',
@@ -67,12 +74,23 @@ export default function AdminOrdersPage() {
                 body: JSON.stringify({ status: newStatus }),
             });
             if (res.ok) {
+                const statusLabels: Record<string, string> = {
+                    CONFIRMED: 'Sipariş onaylandı',
+                    PREPARING: 'Sipariş hazırlanıyor',
+                    SHIPPED: 'Sipariş kargoya verildi',
+                    DELIVERED: 'Sipariş teslim edildi',
+                    CANCELLED: 'Sipariş iptal edildi',
+                };
+                showSuccess(statusLabels[newStatus] || 'Durum güncellendi');
                 loadOrders();
             } else {
-                alert('Durum güncellenemedi');
+                showError('Durum güncellenemedi');
             }
         } catch (err) {
-            alert('Hata oluştu');
+            showError('Bir hata oluştu');
+            console.error('Status update error:', err);
+        } finally {
+            setUpdatingOrder(null);
         }
     };
 
@@ -114,10 +132,76 @@ export default function AdminOrdersPage() {
         ? orders
         : orders.filter(o => o.status === filter);
 
+    // Stats
+    const stats = {
+        total: orders.length,
+        pending: orders.filter(o => o.status === 'PENDING').length,
+        preparing: orders.filter(o => o.status === 'PREPARING').length,
+        shipped: orders.filter(o => o.status === 'SHIPPED').length,
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Yükleniyor...</div>
+            <div className="min-h-screen bg-gray-100">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+                        <Skeleton width="60px" height="24px" />
+                        <Skeleton width="200px" height="32px" />
+                    </div>
+                </div>
+
+                <div className="container mx-auto px-4 py-8">
+                    {/* Stats Skeleton */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-lg shadow-md p-4">
+                                <Skeleton width="80px" height="16px" className="mb-2" />
+                                <Skeleton width="50px" height="32px" />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Filters Skeleton */}
+                    <div className="flex gap-2 mb-6">
+                        {[...Array(7)].map((_, i) => (
+                            <Skeleton key={i} width="80px" height="40px" variant="rectangular" />
+                        ))}
+                    </div>
+
+                    {/* Table Skeleton */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                            <tr>
+                                {[...Array(6)].map((_, i) => (
+                                    <th key={i} className="px-6 py-3 text-left">
+                                        <Skeleton width="60px" height="16px" />
+                                    </th>
+                                ))}
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                            {[...Array(5)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4">
+                                        <Skeleton width="100px" height="20px" className="mb-1" />
+                                        <Skeleton width="60px" height="16px" />
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <Skeleton width="120px" height="20px" className="mb-1" />
+                                        <Skeleton width="150px" height="16px" />
+                                    </td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="70px" height="24px" variant="rectangular" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="80px" height="20px" /></td>
+                                    <td className="px-6 py-4"><Skeleton width="100px" height="20px" /></td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -127,15 +211,35 @@ export default function AdminOrdersPage() {
             <div className="bg-white shadow-sm">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <a href="/dashboard" className="text-gray-500 hover:text-gray-700">
+                        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
                             ← Geri
-                        </a>
+                        </Link>
                         <h1 className="text-2xl font-bold">🛒 Sipariş Yönetimi</h1>
                     </div>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 py-8">
+                {/* Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                        <p className="text-gray-500 text-sm">Toplam Sipariş</p>
+                        <p className="text-2xl font-bold">{stats.total}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                        <p className="text-gray-500 text-sm">Bekleyen</p>
+                        <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                        <p className="text-gray-500 text-sm">Hazırlanan</p>
+                        <p className="text-2xl font-bold text-purple-600">{stats.preparing}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                        <p className="text-gray-500 text-sm">Kargoda</p>
+                        <p className="text-2xl font-bold text-indigo-600">{stats.shipped}</p>
+                    </div>
+                </div>
+
                 {/* Filters */}
                 <div className="flex gap-2 mb-6 flex-wrap">
                     {['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(
@@ -143,7 +247,7 @@ export default function AdminOrdersPage() {
                             <button
                                 key={status}
                                 onClick={() => setFilter(status)}
-                                className={`px-4 py-2 rounded-lg text-sm ${
+                                className={`px-4 py-2 rounded-lg text-sm transition ${
                                     filter === status
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -155,6 +259,11 @@ export default function AdminOrdersPage() {
                                             status === 'PREPARING' ? 'Hazırlanan' :
                                                 status === 'SHIPPED' ? 'Kargoda' :
                                                     status === 'DELIVERED' ? 'Teslim' : 'İptal'}
+                                {status !== 'ALL' && (
+                                    <span className="ml-1 text-xs">
+                    ({orders.filter(o => o.status === status).length})
+                  </span>
+                                )}
                             </button>
                         )
                     )}
@@ -189,12 +298,13 @@ export default function AdminOrdersPage() {
                         {filteredOrders.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                    <div className="text-4xl mb-2">📦</div>
                                     Sipariş bulunmuyor
                                 </td>
                             </tr>
                         ) : (
                             filteredOrders.map((order) => (
-                                <tr key={order.id} className="hover:bg-gray-50">
+                                <tr key={order.id} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4">
                                         <p className="font-medium">{order.orderNumber}</p>
                                         <p className="text-gray-500 text-sm">{order.itemCount} ürün</p>
@@ -217,18 +327,21 @@ export default function AdminOrdersPage() {
                                                     onClick={() =>
                                                         updateStatus(order.orderNumber, getNextStatus(order.status)!)
                                                     }
-                                                    className="text-green-600 hover:underline text-sm"
+                                                    disabled={updatingOrder === order.orderNumber}
+                                                    className="text-green-600 hover:underline text-sm disabled:opacity-50"
                                                 >
-                                                    {getNextStatus(order.status) === 'CONFIRMED' && 'Onayla'}
-                                                    {getNextStatus(order.status) === 'PREPARING' && 'Hazırla'}
-                                                    {getNextStatus(order.status) === 'SHIPPED' && 'Kargola'}
-                                                    {getNextStatus(order.status) === 'DELIVERED' && 'Teslim Et'}
+                                                    {updatingOrder === order.orderNumber ? '...' :
+                                                        getNextStatus(order.status) === 'CONFIRMED' ? 'Onayla' :
+                                                            getNextStatus(order.status) === 'PREPARING' ? 'Hazırla' :
+                                                                getNextStatus(order.status) === 'SHIPPED' ? 'Kargola' :
+                                                                    getNextStatus(order.status) === 'DELIVERED' ? 'Teslim Et' : ''}
                                                 </button>
                                             )}
                                             {order.status === 'PENDING' && (
                                                 <button
                                                     onClick={() => updateStatus(order.orderNumber, 'CANCELLED')}
-                                                    className="text-red-600 hover:underline text-sm"
+                                                    disabled={updatingOrder === order.orderNumber}
+                                                    className="text-red-600 hover:underline text-sm disabled:opacity-50"
                                                 >
                                                     İptal
                                                 </button>
