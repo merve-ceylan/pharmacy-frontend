@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext';
 import Skeleton from '@/components/Skeleton';
+import { usersApi } from '@/lib/api';
 
 interface User {
     id: number;
@@ -15,7 +16,10 @@ interface User {
     role: string;
     active: boolean;
     emailVerified: boolean;
+    pharmacyId: number | null;
+    pharmacyName: string | null;
     createdAt: string;
+    lastLogin: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -46,39 +50,36 @@ export default function AdminUsersPage() {
     };
 
     const loadUsers = async () => {
-        const token = localStorage.getItem('accessToken');
         try {
-            const res = await fetch('http://localhost:8080/api/admin/users', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data.content || data || []);
-            }
+            setLoading(true);
+            const roleFilter = filter !== 'ALL' ? filter : undefined;
+            const data = await usersApi.getAll(roleFilter);
+            setUsers(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error('Kullanıcılar yüklenemedi', err);
+            console.error('Failed to load users:', err);
             showError('Kullanıcılar yüklenemedi');
         } finally {
             setLoading(false);
         }
     };
 
-    const toggleActive = async (userId: number, currentActive: boolean) => {
-        const token = localStorage.getItem('accessToken');
-        const endpoint = currentActive ? 'deactivate' : 'activate';
+    useEffect(() => {
+        if (!loading) {
+            loadUsers();
+        }
+    }, [filter]);
 
+    const toggleActive = async (userId: number, currentActive: boolean) => {
         setTogglingId(userId);
         try {
-            const res = await fetch(`http://localhost:8080/api/admin/users/${userId}/${endpoint}`, {
-                method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                showSuccess(currentActive ? 'Kullanıcı pasifleştirildi' : 'Kullanıcı aktifleştirildi');
-                loadUsers();
+            if (currentActive) {
+                await usersApi.deactivate(userId);
+                showSuccess('Kullanıcı pasifleştirildi');
             } else {
-                showError('İşlem başarısız');
+                await usersApi.activate(userId);
+                showSuccess('Kullanıcı aktifleştirildi');
             }
+            loadUsers();
         } catch (err) {
             console.error('Toggle error:', err);
             showError('İşlem başarısız');
@@ -102,19 +103,18 @@ export default function AdminUsersPage() {
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[role]}`}>
-        {labels[role] || role}
-      </span>
+                {labels[role] || role}
+            </span>
         );
     };
 
     const filteredUsers = users.filter((user) => {
-        const matchesFilter = filter === 'ALL' || user.role === filter;
         const matchesSearch =
             searchQuery === '' ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.lastName.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesFilter && matchesSearch;
+        return matchesSearch;
     });
 
     if (loading) {
@@ -130,18 +130,16 @@ export default function AdminUsersPage() {
                     </div>
                 </div>
                 <div className="container mx-auto px-4 py-8">
-                    {/* Filters Skeleton */}
                     <div className="bg-white rounded-lg shadow-md p-4 mb-6">
                         <div className="flex flex-col md:flex-row gap-4">
                             <Skeleton width="100%" height="40px" variant="rectangular" className="flex-1" />
                             <div className="flex gap-2">
-                                {[...Array(4)].map((_, i) => (
+                                {[...Array(5)].map((_, i) => (
                                     <Skeleton key={i} width="80px" height="40px" variant="rectangular" />
                                 ))}
                             </div>
                         </div>
                     </div>
-                    {/* Table Skeleton */}
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
                         <table className="w-full">
                             <thead className="bg-gray-50">
@@ -183,14 +181,11 @@ export default function AdminUsersPage() {
                         <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
                             ← Geri
                         </Link>
-                        <h1 className="text-2xl font-bold">👥 Personel Yönetimi</h1>
+                        <h1 className="text-2xl font-bold">👥 Kullanıcı Yönetimi</h1>
                     </div>
-                    <button
-                        onClick={() => router.push('/dashboard/users/new')}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                    >
-                        + Yeni Personel
-                    </button>
+                    <div className="text-sm text-gray-500">
+                        Toplam: {users.length} kullanıcı
+                    </div>
                 </div>
             </div>
 
@@ -208,7 +203,7 @@ export default function AdminUsersPage() {
                             />
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                            {['ALL', 'CUSTOMER', 'STAFF', 'PHARMACY_OWNER'].map((role) => (
+                            {['ALL', 'SUPER_ADMIN', 'PHARMACY_OWNER', 'STAFF', 'CUSTOMER'].map((role) => (
                                 <button
                                     key={role}
                                     onClick={() => setFilter(role)}
@@ -218,13 +213,10 @@ export default function AdminUsersPage() {
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
-                                    {role === 'ALL'
-                                        ? 'Tümü'
-                                        : role === 'CUSTOMER'
-                                            ? 'Müşteriler'
-                                            : role === 'STAFF'
-                                                ? 'Personel'
-                                                : 'Sahipler'}
+                                    {role === 'ALL' ? 'Tümü' :
+                                        role === 'SUPER_ADMIN' ? 'Adminler' :
+                                            role === 'PHARMACY_OWNER' ? 'Site Sahipleri' :
+                                                role === 'STAFF' ? 'Personeller' : 'Müşteriler'}
                                 </button>
                             ))}
                         </div>
@@ -243,6 +235,9 @@ export default function AdminUsersPage() {
                                 Rol
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                Eczane
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                 Telefon
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -259,7 +254,7 @@ export default function AdminUsersPage() {
                         <tbody className="divide-y">
                         {filteredUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                                     <div className="text-4xl mb-2">👥</div>
                                     Kullanıcı bulunamadı
                                 </td>
@@ -276,20 +271,27 @@ export default function AdminUsersPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
+                                    <td className="px-6 py-4">
+                                        {user.pharmacyName ? (
+                                            <span className="text-sm text-gray-600">{user.pharmacyName}</span>
+                                        ) : (
+                                            <span className="text-gray-400 text-sm">-</span>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 text-gray-500">{user.phone || '-'}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                        <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                user.active
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}
-                        >
-                          {user.active ? 'Aktif' : 'Pasif'}
-                        </span>
+                                                <span
+                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                        user.active
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : 'bg-gray-100 text-gray-800'
+                                                    }`}
+                                                >
+                                                    {user.active ? 'Aktif' : 'Pasif'}
+                                                </span>
                                             {user.emailVerified && (
-                                                <span className="text-green-600 text-sm">✓ Doğrulanmış</span>
+                                                <span className="text-green-600 text-sm" title="E-posta doğrulanmış">✓</span>
                                             )}
                                         </div>
                                     </td>
@@ -298,12 +300,6 @@ export default function AdminUsersPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => router.push(`/dashboard/users/${user.id}`)}
-                                                className="text-blue-600 hover:underline text-sm"
-                                            >
-                                                Detay
-                                            </button>
                                             <button
                                                 onClick={() => toggleActive(user.id, user.active)}
                                                 disabled={togglingId === user.id}

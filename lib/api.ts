@@ -185,3 +185,55 @@ export const settingsApi = {
             body: JSON.stringify(settings),
         }),
 };
+
+// USERS (Admin)
+export const usersApi = {
+    getAll: (role?: string) =>
+        fetchApi(role ? `/admin/users?role=${role}` : '/admin/users'),
+
+    getById: (id: number) =>
+        fetchApi(`/admin/users/${id}`),
+
+    activate: (id: number) =>
+        fetchApi(`/admin/users/${id}/activate`, {
+            method: 'PATCH',
+        }),
+
+    deactivate: (id: number) =>
+        fetchApi(`/admin/users/${id}/deactivate`, {
+            method: 'PATCH',
+        }),
+};
+// PHARMACIES (Admin)
+export const pharmaciesApi = {
+    getAll: () =>
+        fetchApi('/admin/pharmacies'),
+
+    getById: (id: number) =>
+        fetchApi(`/admin/pharmacies/${id}`),
+
+    getStats: (id: number, months: number = 6) =>
+        fetchApi(`/admin/pharmacies/${id}/stats?months=${months}`),
+
+    create: (data: Record<string, unknown>) =>
+        fetchApi('/admin/pharmacies', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    update: (id: number, data: Record<string, unknown>) =>
+        fetchApi(`/admin/pharmacies/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    suspend: (id: number) =>
+        fetchApi(`/admin/pharmacies/${id}/suspend`, {
+            method: 'PATCH',
+        }),
+
+    reactivate: (id: number) =>
+        fetchApi(`/admin/pharmacies/${id}/reactivate`, {
+            method: 'PATCH',
+        }),
+};
