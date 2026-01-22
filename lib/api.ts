@@ -237,3 +237,13 @@ export const pharmaciesApi = {
             method: 'PATCH',
         }),
 };
+// DASHBOARD STATS
+export const dashboardApi = {
+    // Super Admin stats
+    getAdminStats: () =>
+        fetchApi('/admin/stats'),
+
+    // Pharmacy Owner/Staff stats
+    getPharmacyReports: (range: string = 'week') =>
+        fetchApi(`/pharmacy/reports?range=${range}`),
+};

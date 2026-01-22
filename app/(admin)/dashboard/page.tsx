@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext';
 import Skeleton from '@/components/Skeleton';
+import { dashboardApi } from '@/lib/api';
 
 interface User {
     id: number;
@@ -22,18 +23,30 @@ interface Order {
     status: string;
 }
 
+interface AdminStats {
+    totalPharmacies: number;
+    activePharmacies: number;
+    totalUsers: number;
+    premiumSubscriptions: number;
+}
+
+interface PharmacyReports {
+    totalOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    totalCustomers: number;
+    totalProducts: number;
+    todayOrders: number;
+    todayRevenue: number;
+    pendingOrders: number;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const { showError } = useToast();
     const [user, setUser] = useState<User | null>(null);
-    const [stats, setStats] = useState({
-        todayOrders: 0,
-        pendingOrders: 0,
-        totalProducts: 0,
-        todayRevenue: 0,
-        totalPharmacies: 0,
-        totalUsers: 0,
-    });
+    const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+    const [pharmacyReports, setPharmacyReports] = useState<PharmacyReports | null>(null);
     const [recentOrders, setRecentOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -53,52 +66,21 @@ export default function DashboardPage() {
         }
 
         setUser(parsedUser);
-        loadDashboardData(parsedUser.role, token);
+        loadDashboardData(parsedUser.role);
     }, [router]);
 
-    const loadDashboardData = async (role: string, token: string) => {
+    const loadDashboardData = async (role: string) => {
         try {
             if (role === 'SUPER_ADMIN') {
-                setStats(prev => ({
-                    ...prev,
-                    totalPharmacies: 15,
-                    totalUsers: 250,
-                    todayOrders: 45,
-                    todayRevenue: 12500,
-                }));
+                const stats = await dashboardApi.getAdminStats();
+                setAdminStats(stats);
             } else {
-                try {
-                    const statsRes = await fetch('http://localhost:8080/api/staff/orders/stats', {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (statsRes.ok) {
-                        const statsData = await statsRes.json();
-                        setStats(prev => ({
-                            ...prev,
-                            todayOrders: statsData.todayOrders || 0,
-                            pendingOrders: statsData.pending || 0,
-                            totalProducts: 148,
-                            todayRevenue: 2450,
-                        }));
-                    }
-                } catch (err) {
-                    console.error('Stats fetch error:', err);
-                    showError('İstatistikler yüklenemedi');
-                }
-
-                try {
-                    const ordersRes = await fetch('http://localhost:8080/api/staff/orders/recent', {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (ordersRes.ok) {
-                        const ordersData = await ordersRes.json();
-                        setRecentOrders(ordersData || []);
-                    }
-                } catch (err) {
-                    console.error('Orders fetch error:', err);
-                    showError('Siparişler yüklenemedi');
-                }
+                const reports = await dashboardApi.getPharmacyReports('week');
+                setPharmacyReports(reports);
             }
+        } catch (err) {
+            console.error('Failed to load dashboard data:', err);
+            showError('İstatistikler yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -130,15 +112,13 @@ export default function DashboardPage() {
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100'}`}>
-        {labels[status] || status}
-      </span>
+                {labels[status] || status}
+            </span>
         );
     };
-
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-100">
-                {/* Header Skeleton */}
                 <div className="bg-white shadow-sm">
                     <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                         <div>
@@ -153,7 +133,6 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="container mx-auto px-4 py-8">
-                    {/* Stats Skeleton */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         {[...Array(4)].map((_, i) => (
                             <div key={i} className="bg-white rounded-lg shadow-md p-6">
@@ -168,7 +147,6 @@ export default function DashboardPage() {
                         ))}
                     </div>
 
-                    {/* Quick Actions Skeleton */}
                     <Skeleton width="150px" height="24px" className="mb-4" />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                         {[...Array(6)].map((_, i) => (
@@ -181,24 +159,6 @@ export default function DashboardPage() {
                             </div>
                         ))}
                     </div>
-
-                    {/* Table Skeleton */}
-                    <div className="bg-white rounded-lg shadow-md">
-                        <div className="p-6 border-b">
-                            <Skeleton width="150px" height="24px" />
-                        </div>
-                        <div className="p-6">
-                            {[...Array(5)].map((_, i) => (
-                                <div key={i} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                                    <Skeleton width="100px" height="20px" />
-                                    <Skeleton width="120px" height="20px" />
-                                    <Skeleton width="80px" height="20px" />
-                                    <Skeleton width="80px" height="24px" variant="rectangular" />
-                                    <Skeleton width="60px" height="20px" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             </div>
         );
@@ -207,22 +167,21 @@ export default function DashboardPage() {
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     const isPharmacyOwner = user?.role === 'PHARMACY_OWNER';
 
-    const superAdminStats = [
-        { title: 'Toplam Eczane', value: stats.totalPharmacies, icon: '🏥', color: 'bg-blue-500' },
-        { title: 'Aktif Eczane', value: 12, icon: '✅', color: 'bg-green-500' },
-        { title: 'Toplam Kullanıcı', value: stats.totalUsers, icon: '👥', color: 'bg-purple-500' },
-        { title: 'Premium Abonelik', value: 8, icon: '👑', color: 'bg-yellow-500' },
-    ];
+    const superAdminCards = adminStats ? [
+        { title: 'Toplam Eczane', value: adminStats.totalPharmacies, icon: '🏥', color: 'bg-blue-500' },
+        { title: 'Aktif Eczane', value: adminStats.activePharmacies, icon: '✅', color: 'bg-green-500' },
+        { title: 'Toplam Kullanıcı', value: adminStats.totalUsers, icon: '👥', color: 'bg-purple-500' },
+        { title: 'Premium Abonelik', value: adminStats.premiumSubscriptions, icon: '👑', color: 'bg-yellow-500' },
+    ] : [];
 
-    const pharmacyStats = [
-        { title: 'Bugünkü Siparişler', value: stats.todayOrders, icon: '📦', color: 'bg-blue-500' },
-        { title: 'Bekleyen Siparişler', value: stats.pendingOrders, icon: '⏳', color: 'bg-yellow-500' },
-        { title: 'Toplam Ürün', value: stats.totalProducts, icon: '💊', color: 'bg-green-500' },
-        { title: 'Bugünkü Gelir', value: `${stats.todayRevenue} TL`, icon: '💰', color: 'bg-purple-500' },
-    ];
+    const pharmacyCards = pharmacyReports ? [
+        { title: 'Bugünkü Siparişler', value: pharmacyReports.todayOrders, icon: '📦', color: 'bg-blue-500' },
+        { title: 'Bekleyen Siparişler', value: pharmacyReports.pendingOrders, icon: '⏳', color: 'bg-yellow-500' },
+        { title: 'Toplam Ürün', value: pharmacyReports.totalProducts, icon: '💊', color: 'bg-green-500' },
+        { title: 'Bugünkü Gelir', value: `${pharmacyReports.todayRevenue.toFixed(2)} TL`, icon: '💰', color: 'bg-purple-500' },
+    ] : [];
 
-    const statCards = isSuperAdmin ? superAdminStats : pharmacyStats;
-
+    const statCards = isSuperAdmin ? superAdminCards : pharmacyCards;
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="bg-white shadow-sm">
@@ -360,8 +319,7 @@ export default function DashboardPage() {
                         </>
                     )}
                 </div>
-
-                {!isSuperAdmin && (
+                {!isSuperAdmin && pharmacyReports && (
                     <div className="bg-white rounded-lg shadow-md">
                         <div className="p-6 border-b">
                             <h2 className="text-xl font-bold">Son Siparişler</h2>
