@@ -209,9 +209,9 @@ export default function DashboardPage() {
 
     const superAdminStats = [
         { title: 'Toplam Eczane', value: stats.totalPharmacies, icon: '🏥', color: 'bg-blue-500' },
-        { title: 'Toplam Kullanıcı', value: stats.totalUsers, icon: '👥', color: 'bg-green-500' },
-        { title: 'Bugünkü Sipariş', value: stats.todayOrders, icon: '📦', color: 'bg-yellow-500' },
-        { title: 'Bugünkü Gelir', value: `${stats.todayRevenue} TL`, icon: '💰', color: 'bg-purple-500' },
+        { title: 'Aktif Eczane', value: 12, icon: '✅', color: 'bg-green-500' },
+        { title: 'Toplam Kullanıcı', value: stats.totalUsers, icon: '👥', color: 'bg-purple-500' },
+        { title: 'Premium Abonelik', value: 8, icon: '👑', color: 'bg-yellow-500' },
     ];
 
     const pharmacyStats = [

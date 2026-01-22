@@ -174,3 +174,14 @@ export const addressesApi = {
             method: 'PATCH',
         }),
 };
+// SETTINGS
+export const settingsApi = {
+    get: () =>
+        fetchApi('/admin/settings'),
+
+    update: (settings: Record<string, unknown>) =>
+        fetchApi('/admin/settings', {
+            method: 'PUT',
+            body: JSON.stringify(settings),
+        }),
+};
