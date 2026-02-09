@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext';
 import Skeleton from '@/components/Skeleton';
+import { productsApi } from '@/lib/api';
 
 interface Product {
     id: number;
@@ -24,6 +25,12 @@ export default function AdminProductsPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
     const [togglingId, setTogglingId] = useState<number | null>(null);
+    const [stats, setStats] = useState({
+        total: 0,
+        active: 0,
+        inactive: 0,
+        lowStock: 0,
+    });
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -40,16 +47,15 @@ export default function AdminProductsPage() {
         loadProducts();
     }, [router]);
 
-    const loadProducts = async () => {
-        const token = localStorage.getItem('accessToken');
+    const loadProducts = async (filterValue?: string) => {
         try {
-            const res = await fetch('http://localhost:8080/api/staff/products?size=100', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setProducts(data.content || []);
-            }
+            setLoading(true);
+            const [productsData, statsData] = await Promise.all([
+                productsApi.staff.getAll(0, 20, filterValue || filter),
+                productsApi.staff.getStats(),
+            ]);
+            setProducts(productsData.content || []);
+            setStats(statsData);
         } catch (err) {
             showError('Ürünler yüklenemedi');
             console.error('Products load error:', err);
@@ -59,21 +65,16 @@ export default function AdminProductsPage() {
     };
 
     const toggleActive = async (productId: number, currentActive: boolean) => {
-        const token = localStorage.getItem('accessToken');
-        const endpoint = currentActive ? 'deactivate' : 'activate';
-
         setTogglingId(productId);
         try {
-            const res = await fetch(`http://localhost:8080/api/staff/products/${productId}/${endpoint}`, {
-                method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                showSuccess(currentActive ? 'Ürün pasif yapıldı' : 'Ürün aktif yapıldı');
-                loadProducts();
+            if (currentActive) {
+                await productsApi.staff.deactivate(productId);
+                showSuccess('Ürün pasif yapıldı');
             } else {
-                showError('İşlem başarısız');
+                await productsApi.staff.activate(productId);
+                showSuccess('Ürün aktif yapıldı');
             }
+            loadProducts();
         } catch (err) {
             showError('İşlem başarısız');
             console.error('Toggle error:', err);
@@ -88,11 +89,9 @@ export default function AdminProductsPage() {
         if (filter === 'LOW_STOCK') return p.stockQuantity < 10;
         return true;
     });
-
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-100">
-                {/* Header Skeleton */}
                 <div className="bg-white shadow-sm">
                     <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                         <div className="flex items-center gap-4">
@@ -104,7 +103,6 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div className="container mx-auto px-4 py-8">
-                    {/* Stats Skeleton */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         {[...Array(4)].map((_, i) => (
                             <div key={i} className="bg-white rounded-lg shadow-md p-4">
@@ -114,10 +112,8 @@ export default function AdminProductsPage() {
                         ))}
                     </div>
 
-                    {/* Filter Skeleton */}
                     <Skeleton width="200px" height="40px" className="mb-4" variant="rectangular" />
 
-                    {/* Table Skeleton */}
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
                         <table className="w-full">
                             <thead className="bg-gray-50">
@@ -174,40 +170,42 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
-                {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Ürün</p>
-                        <p className="text-2xl font-bold">{products.length}</p>
+                        <p className="text-2xl font-bold">{stats.total}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Aktif</p>
-                        <p className="text-2xl font-bold text-green-600">{products.filter(p => p.active).length}</p>
+                        <p className="text-2xl font-bold text-green-600">{stats.active}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Pasif</p>
-                        <p className="text-2xl font-bold text-red-600">{products.filter(p => !p.active).length}</p>
+                        <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Düşük Stok</p>
-                        <p className="text-2xl font-bold text-orange-600">{products.filter(p => p.stockQuantity < 10).length}</p>
+                        <p className="text-2xl font-bold text-orange-600">{stats.lowStock}</p>
                     </div>
                 </div>
 
-                {/* Filter */}
                 <div className="mb-4">
                     <select
                         value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => {
+                            const newFilter = e.target.value;
+                            setFilter(newFilter);
+                            loadProducts(newFilter);
+                        }}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        <option value="ALL">Tüm Ürünler ({products.length})</option>
-                        <option value="ACTIVE">Aktif Ürünler ({products.filter(p => p.active).length})</option>
-                        <option value="PASSIVE">Pasif Ürünler ({products.filter(p => !p.active).length})</option>
-                        <option value="LOW_STOCK">Düşük Stok ({products.filter(p => p.stockQuantity < 10).length})</option>
+                        <option value="ALL">Tümü</option>
+                        <option value="ACTIVE">Aktif</option>
+                        <option value="PASSIVE">Pasif</option>
+                        <option value="LOW_STOCK">Stok Azalıyor</option>
+                        <option value="OUT_OF_STOCK">Stokta Yok</option>
                     </select>
                 </div>
-
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                     <table className="w-full">
                         <thead className="bg-gray-50">
@@ -238,8 +236,8 @@ export default function AdminProductsPage() {
                                                 <p className="font-medium">{product.name}</p>
                                                 {product.featured && (
                                                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                              Öne Çıkan
-                            </span>
+                                                            Öne Çıkan
+                                                        </span>
                                                 )}
                                             </div>
                                         </div>
@@ -257,19 +255,19 @@ export default function AdminProductsPage() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                      <span className={`font-medium ${
-                          product.stockQuantity === 0 ? 'text-red-600' :
-                              product.stockQuantity < 10 ? 'text-orange-600' : 'text-green-600'
-                      }`}>
-                        {product.stockQuantity}
-                      </span>
+                                            <span className={`font-medium ${
+                                                product.stockQuantity === 0 ? 'text-red-600' :
+                                                    product.stockQuantity < 10 ? 'text-orange-600' : 'text-green-600'
+                                            }`}>
+                                                {product.stockQuantity}
+                                            </span>
                                     </td>
                                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          product.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {product.active ? 'Aktif' : 'Pasif'}
-                      </span>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                product.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                            }`}>
+                                                {product.active ? 'Aktif' : 'Pasif'}
+                                            </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex gap-2">

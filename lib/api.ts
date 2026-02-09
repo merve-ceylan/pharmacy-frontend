@@ -64,6 +64,7 @@ export const authApi = {
     me: () => fetchApi('/auth/me'),
 };
 
+
 // PRODUCTS
 export const productsApi = {
     getAll: (pharmacyId: number = 1) =>
@@ -77,6 +78,64 @@ export const productsApi = {
 
     search: (pharmacyId: number, query: string) =>
         fetchApi(`/public/pharmacies/${pharmacyId}/products/search?q=${query}`),
+
+    // STAFF endpoints
+    staff: {
+        getAll: (page: number = 0, size: number = 20, filter?: string) => {
+            let url = `/staff/products?page=${page}&size=${size}`;
+            if (filter && filter !== 'ALL') {
+                url += `&filter=${filter}`;
+            }
+            return fetchApi(url);
+        },
+
+        getById: (id: number) =>
+            fetchApi(`/staff/products/${id}`),
+
+        create: (data: Record<string, unknown>) =>
+            fetchApi('/staff/products', {
+                method: 'POST',
+                body: JSON.stringify(data),
+            }),
+
+        update: (id: number, data: Record<string, unknown>) =>
+            fetchApi(`/staff/products/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data),
+            }),
+
+        updateStock: (id: number, quantity: number, reason?: string) =>
+            fetchApi(`/staff/products/${id}/stock`, {
+                method: 'PATCH',
+                body: JSON.stringify({ quantity, reason }),
+            }),
+
+        toggleFeatured: (id: number, featured: boolean) =>
+            fetchApi(`/staff/products/${id}/featured?featured=${featured}`, {
+                method: 'PATCH',
+            }),
+
+        activate: (id: number) =>
+            fetchApi(`/staff/products/${id}/activate`, {
+                method: 'PATCH',
+            }),
+
+        deactivate: (id: number) =>
+            fetchApi(`/staff/products/${id}/deactivate`, {
+                method: 'PATCH',
+            }),
+
+        getLowStock: () =>
+            fetchApi('/staff/products/low-stock'),
+
+        getOutOfStock: () =>
+            fetchApi('/staff/products/out-of-stock'),
+
+        getCount: () =>
+            fetchApi('/staff/products/count'),
+        getStats: () =>
+            fetchApi('/staff/products/stats'),
+    },
 };
 
 // CART
@@ -109,6 +168,7 @@ export const cartApi = {
 
 // ORDERS
 export const ordersApi = {
+    // Customer endpoints
     create: (data: Record<string, unknown>) =>
         fetchApi('/customer/orders', {
             method: 'POST',
@@ -122,6 +182,24 @@ export const ordersApi = {
 
     cancel: (orderNumber: string) =>
         fetchApi(`/customer/orders/${orderNumber}/cancel`, { method: 'POST' }),
+
+    // Staff endpoints
+    staff: {
+        getAll: () =>
+            fetchApi('/staff/orders'),
+
+        getById: (orderNumber: string) =>
+            fetchApi(`/staff/orders/${orderNumber}`),
+
+        updateStatus: (orderNumber: string, status: string) =>
+            fetchApi(`/staff/orders/${orderNumber}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status }),
+            }),
+
+        getStats: () =>
+            fetchApi('/staff/orders/stats'),
+    },
 };
 
 // CATEGORIES
@@ -239,11 +317,9 @@ export const pharmaciesApi = {
 };
 // DASHBOARD STATS
 export const dashboardApi = {
-    // Super Admin stats
     getAdminStats: () =>
         fetchApi('/admin/stats'),
 
-    // Pharmacy Owner/Staff stats
     getPharmacyReports: (range: string = 'week') =>
-        fetchApi(`/pharmacy/reports?range=${range}`),
+        fetchApi(`/pharmacy/reports?range=${range}`),  // ✅ DOĞRU!
 };

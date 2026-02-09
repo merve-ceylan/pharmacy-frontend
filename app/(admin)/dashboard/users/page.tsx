@@ -44,8 +44,9 @@ export default function AdminUsersPage() {
             return;
         }
         const user = JSON.parse(userData);
-        if (user.role !== 'PHARMACY_OWNER' && user.role !== 'SUPER_ADMIN') {
+        if (user.role !== 'SUPER_ADMIN') {
             router.push('/dashboard');
+            return;
         }
     };
 

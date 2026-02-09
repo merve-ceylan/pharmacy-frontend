@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext';
 import Skeleton from '@/components/Skeleton';
+import { ordersApi } from '@/lib/api';
 
 interface Order {
     id: number;
@@ -24,6 +25,12 @@ export default function AdminOrdersPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
     const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
+    const [stats, setStats] = useState({
+        total: 0,
+        pending: 0,
+        preparing: 0,
+        shipped: 0,
+    });
 
     useEffect(() => {
         checkAuth();
@@ -44,15 +51,13 @@ export default function AdminOrdersPage() {
     };
 
     const loadOrders = async () => {
-        const token = localStorage.getItem('accessToken');
         try {
-            const res = await fetch('http://localhost:8080/api/staff/orders', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setOrders(data.content || []);
-            }
+            const [ordersData, statsData] = await Promise.all([
+                ordersApi.staff.getAll(),
+                ordersApi.staff.getStats(),
+            ]);
+            setOrders(ordersData.content || []);
+            setStats(statsData);
         } catch (err) {
             showError('Siparişler yüklenemedi');
             console.error('Siparişler yüklenemedi', err);
@@ -62,30 +67,18 @@ export default function AdminOrdersPage() {
     };
 
     const updateStatus = async (orderNumber: string, newStatus: string) => {
-        const token = localStorage.getItem('accessToken');
         setUpdatingOrder(orderNumber);
         try {
-            const res = await fetch(`http://localhost:8080/api/staff/orders/${orderNumber}/status`, {
-                method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-            if (res.ok) {
-                const statusLabels: Record<string, string> = {
-                    CONFIRMED: 'Sipariş onaylandı',
-                    PREPARING: 'Sipariş hazırlanıyor',
-                    SHIPPED: 'Sipariş kargoya verildi',
-                    DELIVERED: 'Sipariş teslim edildi',
-                    CANCELLED: 'Sipariş iptal edildi',
-                };
-                showSuccess(statusLabels[newStatus] || 'Durum güncellendi');
-                loadOrders();
-            } else {
-                showError('Durum güncellenemedi');
-            }
+            await ordersApi.staff.updateStatus(orderNumber, newStatus);
+            const statusLabels: Record<string, string> = {
+                CONFIRMED: 'Sipariş onaylandı',
+                PREPARING: 'Sipariş hazırlanıyor',
+                SHIPPED: 'Sipariş kargoya verildi',
+                DELIVERED: 'Sipariş teslim edildi',
+                CANCELLED: 'Sipariş iptal edildi',
+            };
+            showSuccess(statusLabels[newStatus] || 'Durum güncellendi');
+            loadOrders();
         } catch (err) {
             showError('Bir hata oluştu');
             console.error('Status update error:', err);
@@ -132,13 +125,7 @@ export default function AdminOrdersPage() {
         ? orders
         : orders.filter(o => o.status === filter);
 
-    // Stats
-    const stats = {
-        total: orders.length,
-        pending: orders.filter(o => o.status === 'PENDING').length,
-        preparing: orders.filter(o => o.status === 'PREPARING').length,
-        shipped: orders.filter(o => o.status === 'SHIPPED').length,
-    };
+
 
     if (loading) {
         return (
