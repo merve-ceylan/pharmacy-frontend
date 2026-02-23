@@ -293,7 +293,7 @@ export default function DashboardPage() {
                             </Link>
                             {isPharmacyOwner && (
                                 <>
-                                    <Link href="/dashboard/users" className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition flex items-center gap-4">
+                                    <Link href="/dashboard/staff" className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition flex items-center gap-4">
                                         <span className="text-3xl">👥</span>
                                         <div>
                                             <h3 className="font-semibold">Personel Yönetimi</h3>

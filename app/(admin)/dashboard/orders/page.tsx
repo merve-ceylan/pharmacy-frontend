@@ -25,11 +25,22 @@ export default function AdminOrdersPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
     const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
-    const [stats, setStats] = useState({
-        total: 0,
+    const [stats, setStats] = useState<{
+        pending: number;
+        confirmed: number;
+        preparing: number;
+        shipped: number;
+        delivered?: number;
+        cancelled?: number;
+        todayOrders: number;
+    }>({
         pending: 0,
+        confirmed: 0,
         preparing: 0,
         shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        todayOrders: 0,
     });
 
     useEffect(() => {
@@ -211,7 +222,7 @@ export default function AdminOrdersPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Toplam Sipariş</p>
-                        <p className="text-2xl font-bold">{stats.total}</p>
+                        <p className="text-2xl font-bold">{stats.pending + stats.confirmed + stats.preparing + stats.shipped + (stats.delivered || 0) + (stats.cancelled || 0)}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
                         <p className="text-gray-500 text-sm">Bekleyen</p>

@@ -323,3 +323,34 @@ export const dashboardApi = {
     getPharmacyReports: (range: string = 'week') =>
         fetchApi(`/pharmacy/reports?range=${range}`),  // ✅ DOĞRU!
 };
+
+// Staff Management API
+export const staffApi = {
+    // List pharmacy staff
+    getAll: () => fetchApi('/pharmacy/staff'),
+
+    // Get staff statistics
+    getStats: () => fetchApi('/pharmacy/staff/stats'),
+
+    // Add new staff member
+    create: (data: {
+        email: string;
+        password: string;
+        firstName: string;
+        lastName: string;
+        phone: string;
+    }) => fetchApi('/pharmacy/staff', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+
+    // Activate staff
+    activate: (id: number) => fetchApi(`/pharmacy/staff/${id}/activate`, {
+        method: 'PATCH',
+    }),
+
+    // Deactivate staff
+    deactivate: (id: number) => fetchApi(`/pharmacy/staff/${id}/deactivate`, {
+        method: 'PATCH',
+    }),
+};
